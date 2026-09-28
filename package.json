@@ -1,0 +1,24 @@
+{
+	"name": "prompt-craft-library",
+	"version": "1.0.0",
+	"description": "Biblioteca de prompts para Obsidian basada en el método de cinco elementos, few-shot, chain of thought y refinamiento iterativo.",
+	"main": "main.js",
+	"private": true,
+	"license": "UNLICENSED",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit --skipLibCheck",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.0",
+		"esbuild": "^0.24.0",
+		"obsidian": "latest",
+		"tslib": "^2.6.3",
+		"typescript": "^5.5.0",
+		"vitest": "^2.1.0",
+		"yaml": "^2.5.0"
+	}
+}

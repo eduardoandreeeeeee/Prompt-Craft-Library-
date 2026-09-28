@@ -1,0 +1,14 @@
+# dependencias y resultado de compilación
+node_modules/
+main.js
+*.map
+
+# datos locales del plugin dentro de una bóveda de prueba
+data.json
+
+# sistema
+.DS_Store
+Thumbs.db
+
+# la bóveda y las notas personales nunca van en este repositorio
+*.vault/

@@ -1,0 +1,35 @@
+name: Release
+
+# Al publicar una etiqueta (por ejemplo 0.1.0) se compila el plugin y se crea un
+# borrador de release con los tres archivos que Obsidian necesita.
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Crear borrador de release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --draft \
+            main.js manifest.json styles.css
