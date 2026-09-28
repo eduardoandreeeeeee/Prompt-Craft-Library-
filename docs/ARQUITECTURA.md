@@ -45,7 +45,7 @@ TypeScript con la API de Obsidian. Se empaqueta con esbuild en un único `main.j
 - Términos del perfil de estilo: una regla por línea, con el formato `usar | evitar`.
 
 ## Comandos e idioma
-- Los nombres de los comandos se registran con el idioma activo; al cambiar de idioma (ajustes o asistente) se quitan y se registran de nuevo con `removeCommand` (requiere Obsidian 1.7.2 o superior).
+- Los nombres de los comandos se registran con el idioma activo; al cambiar de idioma (ajustes o asistente) se quitan y se registran de nuevo con `removeCommand` (requiere Obsidian 1.8.7 o superior).
 - «Crear estructura de carpetas» solo aparece en la paleta cuando falta alguna carpeta.
 - Sectores: no hay lista inicial; cada persona escribe los suyos. `SECTORES_EJEMPLO` solo alimenta las sugerencias y traduce identificadores de versiones anteriores.
 

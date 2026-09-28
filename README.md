@@ -28,7 +28,7 @@ Copia `main.js`, `manifest.json` y `styles.css` a:
 <tu bóveda>/.obsidian/plugins/prompt-craft-library/
 ```
 
-y actívalo en Ajustes → Complementos de la comunidad. Requiere Obsidian 1.7.2 o superior.
+y actívalo en Ajustes → Complementos de la comunidad. Requiere Obsidian 1.8.7 o superior.
 
 Al abrirlo por primera vez se inicia un asistente de cinco pasos (idioma, dominios, herramientas y sectores, perfil de estilo y resumen). Al terminar crea las carpetas y, si lo dejas marcado, instala el paquete inicial.
 
@@ -79,4 +79,4 @@ Prompt Craft Library is an Obsidian plugin to build and refine a personal prompt
 
 It includes validated prompt notes, a step-by-step form, variables (`{{name|default|hint}}`, escape with `\{{literal}}`), a builder that adds examples, reusable blocks and your style profile, a refinement log with a diagnostic checklist (D01–D14) and a stop rule, meta-prompts with "Improve this prompt", search, a side panel, a sortable table, pack export/import and a starter pack. The interface is available in Spanish and English.
 
-Install by copying `main.js`, `manifest.json` and `styles.css` to `<vault>/.obsidian/plugins/prompt-craft-library/` (Obsidian 1.7.2+).
+Install by copying `main.js`, `manifest.json` and `styles.css` to `<vault>/.obsidian/plugins/prompt-craft-library/` (Obsidian 1.8.7+).
