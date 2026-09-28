@@ -1,4 +1,4 @@
-import { MarkdownView, Menu, Notice, Plugin, TFile, TFolder, debounce, setIcon, stringifyYaml } from "obsidian";
+import { MarkdownView, Menu, Notice, Plugin, TFile, TFolder, debounce, getLanguage, setIcon, stringifyYaml } from "obsidian";
 import { FolderDefaults, LibraryPaths, buildPaths, folderKind } from "./core/paths";
 import type { FilterField } from "./core/search";
 import { PromptCraftSettings, mergeSettings } from "./core/settings";
@@ -263,13 +263,9 @@ export default class PromptCraftPlugin extends Plugin {
 		});
 	}
 
-	/** Idioma de la interfaz de Obsidian, si se puede leer. */
+	/** Idioma de la interfaz, obtenido mediante la API de Obsidian. */
 	systemLanguage(): string | null {
-		try {
-			return window.localStorage.getItem("language");
-		} catch {
-			return null;
-		}
+		return getLanguage();
 	}
 
 	openWizard(): void {
@@ -485,7 +481,7 @@ export default class PromptCraftPlugin extends Plugin {
 			}
 			const file = view.file;
 			const inLibrary = !!file && (file.path.startsWith(`${paths.prompts}/`) || file.path.startsWith(`${paths.system}/`));
-			const tipo = file ? this.app.metadataCache.getFileCache(file)?.frontmatter?.tipo : undefined;
+			const tipo: unknown = file ? this.app.metadataCache.getFileCache(file)?.frontmatter?.tipo : undefined;
 			const isPrompt = tipo === "prompt" || tipo === "meta-prompt";
 			els[0].toggle(inLibrary);
 			els.slice(1).forEach((el) => el.toggle(isPrompt));
@@ -522,7 +518,7 @@ export default class PromptCraftPlugin extends Plugin {
 			new Notice(t("notice.notMarkdown"));
 			return null;
 		}
-		const tipo = this.app.metadataCache.getFileCache(file)?.frontmatter?.tipo;
+		const tipo: unknown = this.app.metadataCache.getFileCache(file)?.frontmatter?.tipo;
 		if (tipo !== "prompt" && tipo !== "meta-prompt") {
 			new Notice(t("notice.notPrompt"));
 			return null;

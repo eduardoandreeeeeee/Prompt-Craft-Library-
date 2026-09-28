@@ -1,9 +1,9 @@
 {
 	"id": "prompt-craft-library",
 	"name": "Prompt Craft Library",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"minAppVersion": "1.7.2",
-	"description": "Biblioteca de prompts para Obsidian: método de cinco elementos, few-shot, chain of thought y refinamiento iterativo.",
+	"description": "Biblioteca de prompts: método de cinco elementos, few-shot, chain of thought y refinamiento iterativo.",
 	"author": "eduardoandreeeeeee",
 	"isDesktopOnly": false
 }

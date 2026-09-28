@@ -15,7 +15,7 @@ export function exportableFiles(app: App, paths: LibraryPaths): TFile[] {
 	const out: TFile[] = [];
 	for (const folder of folders) {
 		for (const file of filesIn(app, folder)) {
-			const tipo = app.metadataCache.getFileCache(file)?.frontmatter?.tipo;
+			const tipo: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.tipo;
 			if (tipo === "prompt" || tipo === "meta-prompt" || tipo === "bloque" || tipo === "ejemplos") out.push(file);
 		}
 	}
