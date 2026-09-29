@@ -137,3 +137,51 @@ export function uniquePath(folder: string, fileName: string, exists: (path: stri
 	while (exists(build(n))) n++;
 	return build(n);
 }
+
+const MIN_STEM = 4;
+const MAX_SUGGESTIONS = 3;
+
+/** Minúsculas y sin tildes, para comparar palabras. */
+const fold = (text: string): string =>
+	text
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase();
+
+/**
+ * Raíz del verbo principal de un valor de tarea: la primera palabra del identificador o de la
+ * etiqueta, sin sus dos últimas letras («redactar» → «redact»), para que coincida con
+ * «redacta», «redactar» o «redacción».
+ */
+function stemsOf(id: string, label: string): string[] {
+	const stems = new Set<string>();
+	for (const source of [id, label]) {
+		const word = fold(source).split(/[^a-z0-9]+/).find(Boolean) ?? "";
+		if (word.length >= MIN_STEM) stems.add(word.slice(0, Math.max(MIN_STEM, word.length - 2)));
+	}
+	return [...stems];
+}
+
+/**
+ * Valores del vocabulario de tarea que coinciden con el texto del elemento «tarea» del
+ * constructor. Ordena por la posición de la palabra en el texto (el verbo del inicio primero)
+ * y devuelve como máximo tres. Es solo una sugerencia: la persona decide.
+ */
+export function suggestTareas(
+	text: string,
+	options: readonly string[],
+	label: (id: string) => string = (id) => id,
+): string[] {
+	const words = fold(text).split(/[^a-z0-9]+/).filter(Boolean);
+	if (words.length === 0) return [];
+	const found: { id: string; at: number }[] = [];
+	for (const id of options) {
+		const stems = stemsOf(id, label(id));
+		const at = words.findIndex((w) => stems.some((s) => w.startsWith(s)));
+		if (at !== -1) found.push({ id, at });
+	}
+	return found
+		.sort((a, b) => a.at - b.at)
+		.slice(0, MAX_SUGGESTIONS)
+		.map((f) => f.id);
+}

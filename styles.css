@@ -593,12 +593,38 @@
 .prompt-craft-home-top {
 	align-items: center;
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 	justify-content: space-between;
 }
 .prompt-craft-home-tools {
+	align-items: center;
 	display: flex;
 	gap: 4px;
+}
+/* Acciones principales de la biblioteca: siempre visibles arriba */
+.prompt-craft-home-tools button.prompt-craft-home-main {
+	align-items: center;
+	display: flex;
+	font-weight: var(--font-semibold);
+	gap: 6px;
+	padding-inline: 14px;
+}
+.prompt-craft-home-tools button.prompt-craft-home-search {
+	margin-right: 8px;
+}
+.prompt-craft-home-main > span:first-child {
+	display: flex;
+}
+.prompt-craft-home-toggle {
+	align-items: center;
+	display: flex;
+	gap: 12px;
+}
+.prompt-craft-home-toggle > span:nth-child(2) {
+	flex: 1;
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-normal);
 }
 button.prompt-craft-home-link {
 	background: transparent;
@@ -710,4 +736,42 @@ button.prompt-craft-chip.prompt-craft-home-link {
 }
 .prompt-craft-chip-remove:hover {
 	color: var(--color-red);
+}
+
+/* Sugerencia de tipo de tarea en el modo paso a paso */
+.prompt-craft-suggest {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: -4px 0 12px;
+}
+.prompt-craft-suggest:empty {
+	display: none;
+}
+.prompt-craft-suggest button.prompt-craft-chip {
+	border: none;
+	box-shadow: none;
+	cursor: pointer;
+	height: auto;
+	padding: 2px 8px;
+}
+.prompt-craft-suggest button.prompt-craft-chip:hover,
+.prompt-craft-suggest button.prompt-craft-chip.is-chosen {
+	background: color-mix(in srgb, var(--chip-color) 32%, transparent);
+}
+
+/* Ajustes: valores por defecto del formulario */
+.prompt-craft-defaults-row .setting-item-control {
+	flex-wrap: wrap;
+	gap: 6px;
+	justify-content: flex-end;
+}
+
+/* Registro de iteración: diagnóstico completo o registro rápido */
+.prompt-craft-mode-switch {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 4px;
 }

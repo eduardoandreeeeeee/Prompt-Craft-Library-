@@ -9,13 +9,13 @@ La interfaz está en español e inglés (Ajustes → Prompt Craft Library → Id
 ## Qué incluye
 
 - **Notas de prompt con validación.** Cada entrada exige lo mínimo: el prompt, para qué tarea sirve y una nota de reutilización. Few-shot pide entre 2 y 5 ejemplos, chain of thought pide al menos 3 criterios y un contexto sensible exige el bloque «no inventar datos».
-- **Formulario con modo paso a paso.** Completas los cinco elementos por separado; el plugin arma el prompt y avisa cuál falta.
+- **Formulario con modo paso a paso.** Completas los cinco elementos por separado; el plugin arma el prompt, avisa cuál falta y sugiere el tipo de tarea según lo que escribiste. Abre con tus valores por defecto de herramienta, sensibilidad y estado (generales o por dominio). En tarea, herramienta y sector, «Otra…» agrega un valor nuevo sin salir del formulario, y los bloques y bancos de ejemplos también se crean desde ahí.
 - **Variables.** `{{nombre}}`, `{{nombre|valor por defecto}}` o `{{nombre|valor por defecto|ayuda}}`. Para escribir llaves literales (por ejemplo en n8n) usa `\{{Mensaje}}`.
-- **Constructor.** Completa las variables, suma los ejemplos y bloques del prompt, agrega tu perfil de estilo si quieres y copia el resultado. Avisa según la sensibilidad del prompt.
+- **Constructor.** Completa las variables (las que se llaman como un campo del perfil de estilo, por ejemplo `{{tratamiento}}`, ya vienen llenas), suma los ejemplos y bloques del prompt, agrega tu perfil de estilo si quieres y copia el resultado. Avisa según la sensibilidad del prompt.
 - **Bloques reutilizables y bancos de ejemplos.** Fragmentos de texto y ejemplos de entrada y salida que se agregan a varios prompts.
-- **Ciclo de refinamiento.** Registras qué viste en la respuesta (diagnóstico D01–D14), qué elemento ajustaste y cómo quedó. El historial va a una bitácora por prompt. Con tres iteraciones seguidas sin mejora, el plugin sugiere adjuntar un documento de referencia.
+- **Ciclo de refinamiento.** Registras qué viste en la respuesta (diagnóstico D01–D14), qué elemento ajustaste y cómo quedó; para ajustes obvios hay un registro rápido sin síntomas. El historial va a una bitácora por prompt. Con tres iteraciones seguidas sin mejora, el plugin sugiere adjuntar un documento de referencia.
 - **Meta-prompts y «Mejorar este prompt».** Elige un meta-prompt y el plugin prepara el texto con tu prompt dentro, listo para pegar.
-- **Pantalla de inicio interactiva.** Se abre al iniciar la bóveda (se puede desactivar). Pasos para empezar, últimos prompts, resumen que abre la tabla filtrada, bloques y paquetes, avisos de qué revisar y ayuda breve. Hay botones para volver al inicio desde las notas, el panel y la tabla.
+- **Pantalla de inicio interactiva.** Se abre al iniciar la bóveda (se puede desactivar). Botón destacado para crear una nota de prompt, pasos para empezar (se pueden plegar), últimos prompts, resumen que abre la tabla filtrada, bloques y paquetes, avisos de qué revisar y ayuda breve. Hay botones para volver al inicio desde las notas, el panel y la tabla.
 - **Búsqueda, panel lateral y tabla.** Filtra por dominio, técnica, herramienta, sensibilidad y estado; ordena la biblioteca completa por columna.
 - **Paquetes.** Exporta notas a un archivo para compartirlas e importa el de otra persona sin sobrescribir nada.
 - **Paquete inicial.** Bloques, ejemplos, prompts y meta-prompts de partida, en español o inglés.

@@ -10,7 +10,7 @@ import {
 	symptomText,
 	targetsFor,
 } from "../core/diagnostics";
-import { OUTCOMES, Outcome } from "../core/iteration";
+import { IterationMode, OUTCOMES, Outcome, canSaveIteration } from "../core/iteration";
 import { ESTADOS, Estado } from "../core/vocab";
 import { baseName } from "../core/library";
 import { labelFor, t } from "../i18n";
@@ -36,8 +36,9 @@ export class IterationModal extends Modal {
 	private note = "";
 	private newPrompt = "";
 	private estado: Estado = "en-iteracion";
+	private mode: IterationMode;
 
-	private suggestionsEl!: HTMLElement;
+	private suggestionsEl: HTMLElement | null = null;
 	private targetSelect: HTMLSelectElement | null = null;
 	private stopEl!: HTMLElement;
 
@@ -48,6 +49,7 @@ export class IterationModal extends Modal {
 		private readonly onDone?: () => void,
 	) {
 		super(app);
+		this.mode = plugin.settings.iterationQuick ? "rapido" : "completo";
 	}
 
 	onOpen(): void {
@@ -71,6 +73,7 @@ export class IterationModal extends Modal {
 	private render(): void {
 		const { contentEl } = this;
 		contentEl.empty();
+		this.suggestionsEl = null;
 		contentEl.addClass("prompt-craft-iteration");
 		this.titleEl.setText(t("iter.title", { title: baseName(this.file.path) }));
 
@@ -79,28 +82,12 @@ export class IterationModal extends Modal {
 			cls: "prompt-craft-muted",
 		});
 
-		contentEl.createEl("h3", { text: t("iter.symptoms"), cls: "prompt-craft-wizard-heading" });
-		contentEl.createEl("p", { text: t("iter.symptoms.desc"), cls: "prompt-craft-muted" });
-		const grid = contentEl.createDiv({ cls: "prompt-craft-symptoms" });
-		for (const id of DIAGNOSTIC_IDS) {
-			const label = grid.createEl("label", { cls: "prompt-craft-symptom" });
-			const input = label.createEl("input", { type: "checkbox" });
-			input.checked = this.symptoms.has(id);
-			input.addEventListener("change", () => {
-				if (input.checked) this.symptoms.add(id);
-				else this.symptoms.delete(id);
-				this.onSymptomsChanged();
-			});
-			const text = label.createSpan();
-			text.createSpan({ text: id, cls: "prompt-craft-symptom-id" });
-			text.appendText(` ${symptomText(id)}`);
-		}
-		this.suggestionsEl = contentEl.createDiv({ cls: "prompt-craft-suggestions" });
-		this.renderSuggestions();
+		this.modeSwitch();
+		if (this.mode === "completo") this.symptomsSection();
 
 		new Setting(contentEl)
 			.setName(t("iter.target"))
-			.setDesc(t("iter.target.desc"))
+			.setDesc(t(this.mode === "rapido" ? "iter.target.quickDesc" : "iter.target.desc"))
 			.addDropdown((dd) => {
 				for (const target of ADJUST_TARGETS) dd.addOption(target, adjustLabel(target));
 				dd.setValue(this.target).onChange((v) => {
@@ -111,7 +98,13 @@ export class IterationModal extends Modal {
 			});
 
 		this.textArea(t("iter.prompt"), t("iter.prompt.desc"), this.newPrompt, 8, (v) => (this.newPrompt = v));
-		this.textArea(t("iter.note"), t("iter.note.desc"), this.note, 2, (v) => (this.note = v));
+		this.textArea(
+			t(this.mode === "rapido" ? "iter.note.optional" : "iter.note"),
+			t("iter.note.desc"),
+			this.note,
+			2,
+			(v) => (this.note = v),
+		);
 
 		new Setting(contentEl).setName(t("iter.outcome")).addDropdown((dd) => {
 			for (const o of OUTCOMES) dd.addOption(o, t(`outcome.${o}`));
@@ -139,6 +132,50 @@ export class IterationModal extends Modal {
 			);
 	}
 
+	/** Dos botones para elegir entre diagnóstico completo y registro rápido; se recuerda la elección. */
+	private modeSwitch(): void {
+		const box = this.contentEl.createDiv({ cls: "prompt-craft-mode-switch", attr: { role: "group" } });
+		const option = (mode: IterationMode, label: string) => {
+			const active = this.mode === mode;
+			const b = box.createEl("button", { text: label, cls: active ? "mod-cta" : "", attr: { "aria-pressed": String(active) } });
+			b.addEventListener("click", async () => {
+				if (active) return;
+				this.mode = mode;
+				this.plugin.settings.iterationQuick = mode === "rapido";
+				await this.plugin.saveSettings();
+				this.render();
+			});
+		};
+		option("completo", t("iter.mode.full"));
+		option("rapido", t("iter.mode.quick"));
+		this.contentEl.createEl("p", {
+			text: t(this.mode === "rapido" ? "iter.mode.quick.desc" : "iter.mode.full.desc"),
+			cls: "prompt-craft-muted",
+		});
+	}
+
+	private symptomsSection(): void {
+		const { contentEl } = this;
+		contentEl.createEl("h3", { text: t("iter.symptoms"), cls: "prompt-craft-wizard-heading" });
+		contentEl.createEl("p", { text: t("iter.symptoms.desc"), cls: "prompt-craft-muted" });
+		const grid = contentEl.createDiv({ cls: "prompt-craft-symptoms" });
+		for (const id of DIAGNOSTIC_IDS) {
+			const label = grid.createEl("label", { cls: "prompt-craft-symptom" });
+			const input = label.createEl("input", { type: "checkbox" });
+			input.checked = this.symptoms.has(id);
+			input.addEventListener("change", () => {
+				if (input.checked) this.symptoms.add(id);
+				else this.symptoms.delete(id);
+				this.onSymptomsChanged();
+			});
+			const text = label.createSpan();
+			text.createSpan({ text: id, cls: "prompt-craft-symptom-id" });
+			text.appendText(` ${symptomText(id)}`);
+		}
+		this.suggestionsEl = contentEl.createDiv({ cls: "prompt-craft-suggestions" });
+		this.renderSuggestions();
+	}
+
 	private textArea(name: string, desc: string, value: string, rows: number, onChange: (v: string) => void): void {
 		const setting = new Setting(this.contentEl).setName(name).setDesc(desc);
 		setting.settingEl.addClass("prompt-craft-stacked");
@@ -161,6 +198,7 @@ export class IterationModal extends Modal {
 	}
 
 	private renderSuggestions(): void {
+		if (!this.suggestionsEl) return;
 		this.suggestionsEl.empty();
 		if (this.symptoms.size === 0) return;
 		this.suggestionsEl.createEl("p", { text: t("iter.suggestions"), cls: "prompt-craft-suggestions-title" });
@@ -188,13 +226,14 @@ export class IterationModal extends Modal {
 	}
 
 	private async save(): Promise<void> {
-		if (this.symptoms.size === 0 && this.note.trim() === "") {
+		if (!canSaveIteration(this.mode, { symptoms: [...this.symptoms], note: this.note })) {
 			new Notice(t("iter.needsSomething"));
 			return;
 		}
 		try {
 			const result = await recordIteration(this.app, this.plugin.getPaths(), this.file, {
-				symptoms: [...this.symptoms],
+				// En el registro rápido la sección de síntomas no se ve; no se guarda lo que no está a la vista.
+				symptoms: this.mode === "completo" ? [...this.symptoms] : [],
 				target: this.target,
 				note: this.note,
 				outcome: this.outcome,

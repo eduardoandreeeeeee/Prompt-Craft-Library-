@@ -65,3 +65,32 @@ export function renderPrompt(text: string, values: Record<string, string>): Rend
 	});
 	return { text: rendered, missing: [...missing] };
 }
+
+/** Clave para comparar nombres de variable: sin tildes, mayúsculas, espacios, guiones ni guiones bajos. */
+export function variableKey(name: string): string {
+	return name
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Valores con que arranca cada variable en el constructor. Manda lo que ya viene dado
+ * (`preset`); si no hay, se usa el valor conocido de igual nombre (por ejemplo, del perfil
+ * de estilo), comparando sin distinguir `idioma-variante`, `idioma_variante` o `idiomaVariante`.
+ */
+export function initialValues(
+	variables: readonly PromptVariable[],
+	preset: Record<string, string>,
+	known: Record<string, string>,
+): Record<string, string> {
+	const byKey = new Map(Object.entries(known).map(([name, value]) => [variableKey(name), value]));
+	const values = { ...preset };
+	for (const variable of variables) {
+		if (values[variable.name]) continue;
+		const value = byKey.get(variableKey(variable.name));
+		if (value) values[variable.name] = value;
+	}
+	return values;
+}

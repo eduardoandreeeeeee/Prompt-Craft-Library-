@@ -4,6 +4,7 @@ import {
 	draftToFrontmatter,
 	emptyDraft,
 	noteFileName,
+	suggestTareas,
 	uniquePath,
 	validateDraft,
 	withNoInvent,
@@ -92,5 +93,30 @@ describe("noteFileName y uniquePath", () => {
 		expect(uniquePath("P", "Nota.md", (p) => taken.has(p))).toBe("P/Nota 3.md");
 		expect(uniquePath("P", "Otra.md", (p) => taken.has(p))).toBe("P/Otra.md");
 		expect(uniquePath("", "Otra.md", () => false)).toBe("Otra.md");
+	});
+});
+
+describe("suggestTareas", () => {
+	const options = ["redactar", "resumir", "traducir-idioma", "extraer-datos", "analizar-datos", "Responder reclamos"];
+
+	it("reconoce el verbo aunque esté conjugado o con tilde", () => {
+		expect(suggestTareas("Redacta un correo para el cliente", options)).toEqual(["redactar"]);
+		expect(suggestTareas("Resúmeme el informe", options)).toEqual(["resumir"]);
+	});
+
+	it("ordena por posición en el texto y no se deja llevar por palabras secundarias", () => {
+		expect(suggestTareas("Extrae los montos y luego resume", options)).toEqual(["extraer-datos", "resumir"]);
+		expect(suggestTareas("Revisa estos datos", options)).toEqual([]);
+	});
+
+	it("usa también la etiqueta y los valores propios de la persona", () => {
+		const label = (id: string) => (id === "traducir-idioma" ? "Translate" : id);
+		expect(suggestTareas("Translate this email", options, label)).toEqual(["traducir-idioma"]);
+		expect(suggestTareas("Responde los reclamos del día", options)).toEqual(["Responder reclamos"]);
+	});
+
+	it("con texto vacío no sugiere nada y devuelve como máximo tres", () => {
+		expect(suggestTareas("  ", options)).toEqual([]);
+		expect(suggestTareas("redactar resumir traducir extraer analizar", options)).toHaveLength(3);
 	});
 });

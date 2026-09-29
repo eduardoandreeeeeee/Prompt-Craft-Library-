@@ -6,7 +6,7 @@
 import type { LanguageSetting } from "../i18n";
 import type { FolderNames } from "./paths";
 import { sanitizeFolderName } from "./paths";
-import { OPEN_VOCAB_INITIAL } from "./vocab";
+import { ESTADOS, Estado, OPEN_VOCAB_INITIAL, SENSIBILIDADES, Sensibilidad } from "./vocab";
 
 /** Versión del formato de ajustes (distinta de la versión de esquema de las notas). */
 export const SETTINGS_VERSION = 1;
@@ -32,6 +32,22 @@ export interface OpenVocabulary {
 	sector: string[];
 }
 
+/** Valores con que abre el formulario de nueva nota. Vacío = sin valor por defecto. */
+export interface ClassificationDefaults {
+	herramienta: string;
+	sensibilidad: Sensibilidad | "";
+	estado: Estado | "";
+}
+
+export interface DefaultsSettings extends ClassificationDefaults {
+	/** Excepciones por dominio; un campo vacío usa el valor general. */
+	porDominio: Record<string, ClassificationDefaults>;
+}
+
+export function emptyClassificationDefaults(): ClassificationDefaults {
+	return { herramienta: "", sensibilidad: "", estado: "" };
+}
+
 export interface PromptCraftSettings {
 	settingsVersion: number;
 	language: LanguageSetting;
@@ -48,6 +64,11 @@ export interface PromptCraftSettings {
 	showStatusBar: boolean;
 	/** Abre la pantalla de inicio cada vez que se abre la bóveda. */
 	openHomeOnStartup: boolean;
+	defaults: DefaultsSettings;
+	/** El registro de iteraciones abre en modo rápido (se recuerda el último usado). */
+	iterationQuick: boolean;
+	/** La sección «Para empezar» de la pantalla de inicio está plegada. */
+	gettingStartedCollapsed: boolean;
 }
 
 export function defaultSettings(): PromptCraftSettings {
@@ -83,6 +104,9 @@ export function defaultSettings(): PromptCraftSettings {
 		setupPrompted: false,
 		showStatusBar: true,
 		openHomeOnStartup: true,
+		defaults: { ...emptyClassificationDefaults(), porDominio: {} },
+		iterationQuick: false,
+		gettingStartedCollapsed: false,
 	};
 }
 
@@ -103,6 +127,27 @@ function asTermRules(value: unknown, fallback: TermRule[]): TermRule[] {
 		.map(asBag)
 		.filter((r) => typeof r.usar === "string" && typeof r.evitar === "string")
 		.map((r) => ({ usar: r.usar as string, evitar: r.evitar as string }));
+}
+
+function asClassificationDefaults(value: unknown): ClassificationDefaults {
+	const b = asBag(value);
+	const closed = <T extends string>(v: unknown, list: readonly T[]): T | "" =>
+		typeof v === "string" && (list as readonly string[]).includes(v) ? (v as T) : "";
+	return {
+		herramienta: asString(b.herramienta, "").trim(),
+		sensibilidad: closed(b.sensibilidad, SENSIBILIDADES),
+		estado: closed(b.estado, ESTADOS),
+	};
+}
+
+function asDefaults(value: unknown): DefaultsSettings {
+	const b = asBag(value);
+	const porDominio: Record<string, ClassificationDefaults> = {};
+	for (const [dominio, entry] of Object.entries(asBag(b.porDominio))) {
+		const d = asClassificationDefaults(entry);
+		if (d.herramienta || d.sensibilidad || d.estado) porDominio[dominio] = d;
+	}
+	return { ...asClassificationDefaults(b), porDominio };
 }
 
 /**
@@ -150,6 +195,10 @@ export function mergeSettings(saved: unknown): PromptCraftSettings {
 		setupPrompted: typeof s.setupPrompted === "boolean" ? s.setupPrompted : d.setupPrompted,
 		showStatusBar: typeof s.showStatusBar === "boolean" ? s.showStatusBar : d.showStatusBar,
 		openHomeOnStartup: typeof s.openHomeOnStartup === "boolean" ? s.openHomeOnStartup : d.openHomeOnStartup,
+		defaults: asDefaults(s.defaults),
+		iterationQuick: typeof s.iterationQuick === "boolean" ? s.iterationQuick : d.iterationQuick,
+		gettingStartedCollapsed:
+			typeof s.gettingStartedCollapsed === "boolean" ? s.gettingStartedCollapsed : d.gettingStartedCollapsed,
 	};
 }
 
@@ -166,4 +215,35 @@ export function parseDomainList(text: string): string[] {
 		}
 	}
 	return result;
+}
+
+/**
+ * Agrega un valor escrito por la persona a una lista abierta (tarea, herramienta, sector).
+ * Si ya existe (por identificador o por etiqueta, sin distinguir mayúsculas), no lo duplica
+ * y devuelve el existente. No modifica la lista de origen.
+ */
+export function addOpenValue(
+	list: readonly string[],
+	text: string,
+	label: (id: string) => string = (id) => id,
+): { list: string[]; value: string } {
+	const value = text.replace(/\s+/g, " ").trim();
+	if (!value) return { list: [...list], value: "" };
+	const key = value.toLowerCase();
+	const existing = list.find((id) => id.toLowerCase() === key || label(id).toLowerCase() === key);
+	if (existing) return { list: [...list], value: existing };
+	return { list: [...list, value], value };
+}
+
+/**
+ * Valores por defecto de clasificación para un dominio: los del dominio, y lo que no tenga,
+ * los generales. Un campo vacío significa que el formulario no propone nada.
+ */
+export function classificationDefaultsFor(defaults: DefaultsSettings, dominio: string): ClassificationDefaults {
+	const own = defaults.porDominio[dominio] ?? emptyClassificationDefaults();
+	return {
+		herramienta: own.herramienta || defaults.herramienta,
+		sensibilidad: own.sensibilidad || defaults.sensibilidad,
+		estado: own.estado || defaults.estado,
+	};
 }

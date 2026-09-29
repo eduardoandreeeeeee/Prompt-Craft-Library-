@@ -5,7 +5,7 @@ TypeScript con la API de Obsidian. Se empaqueta con esbuild en un único `main.j
 
 ## Tres capas
 1. **Método fijo** (`src/core`): reglas del curso (cinco elementos, técnicas, validaciones). Igual para todas las personas.
-2. **Configuración de la persona** (`data.json` vía `settings.ts`): dominios, carpetas, herramientas, sectores, perfil de estilo.
+2. **Configuración de la persona** (`data.json` vía `settings.ts`): dominios, carpetas, herramientas, sectores, perfil de estilo, valores por defecto del formulario (`defaults`, generales y por dominio; se resuelven con `classificationDefaultsFor`) y preferencias de interfaz (`gettingStartedCollapsed`, `iterationQuick`).
 3. **Paquete inicial opcional** (`src/starter`): bloques, bancos de ejemplos, prompts y meta-prompts propios en español e inglés; se instala con el mismo mecanismo que un paquete importado y nunca es obligatorio.
 
 ## Núcleo puro vs. capa Obsidian
@@ -59,6 +59,7 @@ TypeScript con la API de Obsidian. Se empaqueta con esbuild en un único `main.j
 ## Constructor
 - Comandos «Usar un prompt» (abre la búsqueda en modo uso) y «Usar la nota actual como prompt». En la búsqueda, cada resultado tiene además un botón para la otra acción (Abrir o Usar).
 - Pide un valor por cada variable `{{nombre|defecto|ayuda}}`; muestra una vista previa y avisa qué variables quedan sin valor.
+- Las variables que se llaman como un campo del perfil de estilo (`contexto-base`, `idioma-variante`, `tratamiento`, `registro`, `cierre`; sin distinguir mayúsculas, tildes, guiones ni guiones bajos) arrancan con ese valor (`styleVariableValues` en `core/style.ts` + `initialValues` en `core/variables.ts`). Un valor ya dado (`preset`) manda.
 - Si la sección `## Prompt` es una cita (`>`) o un bloque de código completo, se quita ese formato al copiar.
 - Sensibilidad: datos personales muestra una advertencia; contexto sensible además exige confirmar antes de habilitar «Copiar» y avisa si falta el bloque `no-inventar`.
 - Perfil de estilo: si tiene datos, se agrega al final como «Preferencias de estilo:», con un interruptor para incluirlo o no. El bloque se arma después de reemplazar las variables, así que sus llaves no se interpretan.
@@ -78,7 +79,7 @@ TypeScript con la API de Obsidian. Se empaqueta con esbuild en un único `main.j
 - Constructor: la advertencia es naranja o roja según el nivel. Validación: verde si cumple, rojo si hay problemas. Asistente: barra de avance con el color de acento.
 
 ## Versión 1.0: ciclo de refinamiento
-- Comando «Registrar una iteración del prompt» (también desde el constructor y la tabla). `ui/IterationModal.ts` pide síntomas D01–D14, el elemento ajustado (uno por iteración), el resultado (mejoró, igual, empeoró), una nota, el prompt resultante y el estado.
+- Comando «Registrar una iteración del prompt» (también desde el constructor y la tabla). `ui/IterationModal.ts` pide síntomas D01–D14, el elemento ajustado (uno por iteración), el resultado (mejoró, igual, empeoró), una nota, el prompt resultante y el estado. Tiene dos modos: diagnóstico completo (exige un síntoma o una nota) y registro rápido (sin síntomas; la nota es opcional). La regla está en `canSaveIteration` y el último modo usado se recuerda en `iterationQuick`.
 - `core/diagnostics.ts`: catálogo de síntomas con el elemento que corrige cada uno (`DIAGNOSTIC_TARGET`); los textos están en los archivos de idioma. `STOP_AFTER = 3`: con tres iteraciones seguidas sin mejora se recomienda adjuntar un documento de referencia (D14) en vez de seguir ajustando.
 - `core/iteration.ts` (puro) arma las entradas de bitácora y los contadores; `services/logs.ts` las escribe.
 - Cada prompt tiene una bitácora propia en la carpeta de bitácoras (`tipo: bitacora`, `prompt: "[[Nota]]"`). Guarda el prompt inicial (versión 1) y, por iteración, síntomas, elemento, resultado, nota y el prompt resultante en un callout plegado.
@@ -90,6 +91,9 @@ TypeScript con la API de Obsidian. Se empaqueta con esbuild en un único `main.j
 - **Orden del prompt final** (`core/builder.ts`, `composePrompt`): prompt, ejemplos, bloques y, al final, el perfil de estilo. Las variables se reemplazan una sola vez sobre el texto compuesto, así que los bloques también pueden llevar `{{variables}}`.
 - **Meta-prompts** (`tipo: meta-prompt`, carpeta de meta-prompts): cumplen el mismo mínimo que un prompt. «Mejorar este prompt» elige uno y abre el constructor con la variable `{{prompt}}` ya completada con el prompt de la nota activa. Solo prepara texto: se copia y se pega a mano.
 - **Modo paso a paso** del formulario: cinco campos, uno por elemento; arma el prompt y avisa cuál falta. La tarea es obligatoria.
+- Bajo el elemento «tarea» se sugieren hasta tres valores del vocabulario `tarea` que coinciden por el verbo (`suggestTareas` en `core/note.ts`: raíz de la primera palabra del id o de la etiqueta, sin tildes). Es solo una sugerencia; un clic la aplica.
+- En los selectores de tarea, herramienta y sector, «Otra…» abre un campo; el valor se aplica a la nota y se agrega al vocabulario abierto sin duplicar (`addOpenValue` en `core/settings.ts`). Los vocabularios cerrados no tienen esta opción.
+- Bloques y bancos de ejemplos se crean sin cerrar el formulario: «Nuevo bloque» (en el formulario y en `BlockPickerModal`) deja el bloque elegido; «Nuevo banco» se destaca mientras no haya `ejemplos_ref` y deja el banco elegido.
 
 ## Versión 1.0: vista de tabla
 - `ui/LibraryTableView.ts` abre una pestaña con todos los prompts; se ordena por columna (`core/table.ts`) y se filtra con los mismos filtros de la búsqueda. Cada fila tiene acceso a usar el prompt y a registrar una iteración.
@@ -106,7 +110,7 @@ TypeScript con la API de Obsidian. Se empaqueta con esbuild en un único `main.j
 - `tests/i18n-usage.test.ts` revisa que toda clave de texto usada en el código exista en español.
 
 ## Pantalla de inicio
-- `ui/HomeView.ts` (comando «Abrir la pantalla de inicio» y primera entrada del menú): pestaña con pasos para empezar (con botón que ejecuta cada paso), resumen de la biblioteca, avisos de qué revisar, accesos rápidos y ayuda breve del método y de las carpetas.
+- `ui/HomeView.ts` (comando «Abrir la pantalla de inicio» y primera entrada del menú): pestaña con un botón destacado «Nueva nota de prompt» en la cabecera, pasos para empezar (con botón que ejecuta cada paso; la sección se pliega y el estado se guarda en `gettingStartedCollapsed`), resumen de la biblioteca, avisos de qué revisar, accesos rápidos y ayuda breve del método y de las carpetas.
 - `core/home.ts` (puro, con pruebas): `homeSteps`, `libraryStats` y `homeAlerts` (notas que no cumplen el mínimo, prompts con 3 o más iteraciones sin mejora y borradores sin cambios hace más de 30 días).
 - Es interactiva: los pasos ejecutan su acción; «Continúa donde quedaste» lista los 5 prompts más recientes con abrir, usar e iterar; las tarjetas, los estados y los dominios abren la tabla ya filtrada (`activateTable({field, value})` → `LibraryTableView.setFilter`); «Tu material» muestra bloques, bancos, meta-prompts y paquetes con sus botones de crear y de mostrar la carpeta.
 - Se actualiza sola al cambiar las notas de la biblioteca.

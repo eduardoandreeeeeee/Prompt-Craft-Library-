@@ -8,18 +8,23 @@ import {
 	emptyDraft,
 	emptyElements,
 	missingElements,
+	suggestTareas,
 	validateDraft,
 	withNoInvent,
 } from "../core/note";
 import { BLOQUE_NO_INVENTAR, ValidationIssue } from "../core/schema";
-import { ELEMENTOS, ESTADOS, SENSIBILIDADES, TECNICAS, Estado, Sensibilidad, Tecnica } from "../core/vocab";
+import { addOpenValue, classificationDefaultsFor } from "../core/settings";
+import { ELEMENTOS, ESTADOS, SENSIBILIDADES, TECNICAS, Estado, OpenField, Sensibilidad, Tecnica } from "../core/vocab";
 import { BlockNote } from "../core/blocks";
 import { labelFor, t } from "../i18n";
 import type PromptCraftPlugin from "../main";
 import { ExampleBank, loadBlocks, loadExampleBanks } from "../services/library";
 import { ExamplesFormModal } from "./ExamplesFormModal";
 import { BlockFormModal } from "./BlockFormModal";
-import { BlockPickerModal } from "./BlockPickerModal";
+import { BlockPickerModal, CreateBlock } from "./BlockPickerModal";
+
+/** Valor de la opción «Otra…» en las listas abiertas; no puede coincidir con un valor real. */
+const OTHER = "__otra__";
 
 const lines = (text: string): string[] =>
 	text
@@ -45,6 +50,11 @@ export class PromptFormModal extends Modal {
 	private banks: ExampleBank[] = [];
 	private issuesEl!: HTMLElement;
 	private missingEl: HTMLElement | null = null;
+	private suggestEl: HTMLElement | null = null;
+	/** Lista abierta en la que se está escribiendo un valor nuevo. */
+	private otherField: OpenField | null = null;
+	/** Campos que la persona ya eligió; los valores por defecto no los pisan. */
+	private readonly touched = new Set<"herramienta" | "sensibilidad" | "estado">();
 
 	constructor(
 		app: App,
@@ -60,6 +70,19 @@ export class PromptFormModal extends Modal {
 			this.draft.dominio = "";
 		} else {
 			this.draft.dominio = options.dominio ?? plugin.settings.domains[0] ?? "";
+		}
+		this.applyDefaults();
+	}
+
+	/** Aplica los valores por defecto de ajustes (del dominio o generales) a los campos no tocados. */
+	private applyDefaults(): void {
+		const d = this.draft;
+		const defaults = classificationDefaultsFor(this.plugin.settings.defaults, d.dominio);
+		if (d.tipo === "prompt" && !this.touched.has("herramienta")) d.herramienta = defaults.herramienta ? [defaults.herramienta] : [];
+		if (!this.touched.has("estado") && defaults.estado) d.estado = defaults.estado;
+		if (!this.touched.has("sensibilidad") && defaults.sensibilidad) {
+			d.sensibilidad = defaults.sensibilidad;
+			if (d.sensibilidad === "contexto-sensible") d.bloques = withNoInvent(d.bloques, true);
 		}
 	}
 
@@ -109,7 +132,11 @@ export class PromptFormModal extends Modal {
 					const known = this.plugin.settings.domains;
 					for (const domain of known) dd.addOption(domain, domain);
 					if (d.dominio && !known.includes(d.dominio)) dd.addOption(d.dominio, d.dominio);
-					dd.setValue(d.dominio).onChange((v) => (d.dominio = v));
+					dd.setValue(d.dominio).onChange((v) => {
+						d.dominio = v;
+						this.applyDefaults();
+						this.render();
+					});
 				});
 		}
 
@@ -128,6 +155,7 @@ export class PromptFormModal extends Modal {
 			for (const v of SENSIBILIDADES) dd.addOption(v, labelFor("sensibilidad", v));
 			dd.setValue(d.sensibilidad).onChange((v) => {
 				d.sensibilidad = v as Sensibilidad;
+				this.touched.add("sensibilidad");
 				if (d.sensibilidad === "contexto-sensible") d.bloques = withNoInvent(d.bloques, true);
 				this.render();
 			});
@@ -146,12 +174,18 @@ export class PromptFormModal extends Modal {
 
 		new Setting(contentEl).setName(t("field.estado")).addDropdown((dd) => {
 			for (const v of ESTADOS) dd.addOption(v, labelFor("estado", v));
-			dd.setValue(d.estado).onChange((v) => (d.estado = v as Estado));
+			dd.setValue(d.estado).onChange((v) => {
+				d.estado = v as Estado;
+				this.touched.add("estado");
+			});
 		});
 
 		this.openVocabDropdown(t("form.tarea"), "tarea", vocab.tarea, d.tarea, (list) => (d.tarea = list));
 		if (d.tipo === "prompt") {
-			this.openVocabDropdown(t("form.herramienta"), "herramienta", vocab.herramienta, d.herramienta, (list) => (d.herramienta = list));
+			this.openVocabDropdown(t("form.herramienta"), "herramienta", vocab.herramienta, d.herramienta, (list) => {
+				d.herramienta = list;
+				this.touched.add("herramienta");
+			});
 			this.openVocabDropdown(t("form.sector"), "sector", vocab.sector, d.sector, (list) => (d.sector = list));
 		}
 
@@ -179,21 +213,40 @@ export class PromptFormModal extends Modal {
 		const d = this.draft;
 		const chosen = d.bloques.filter((id) => id !== BLOQUE_NO_INVENTAR);
 		const setting = new Setting(this.contentEl).setName(t("field.bloques")).setDesc(t("form.blocks.desc"));
+		const available = () => this.blocks.filter((x) => x.id !== BLOQUE_NO_INVENTAR);
+		const setChosen = (ids: string[]) => {
+			d.bloques = d.bloques.includes(BLOQUE_NO_INVENTAR) ? [...ids, BLOQUE_NO_INVENTAR] : ids;
+		};
+		// El bloque recién creado queda elegido, sin cerrar este formulario.
+		const createBlock: CreateBlock = (onCreated) =>
+			new BlockFormModal(this.app, this.plugin, (id) => {
+				void loadBlocks(this.app, this.plugin.getPaths()).then((blocks) => {
+					this.blocks = blocks;
+					onCreated(id, available());
+				});
+			}).open();
 		setting.addButton((b) =>
-			b.setButtonText(t("form.blocks.new")).onClick(() => {
-				new BlockFormModal(this.app, this.plugin, () => void this.reloadAndRender()).open();
-			}),
+			b.setButtonText(t("form.blocks.new")).onClick(() =>
+				createBlock((id) => {
+					setChosen([...d.bloques.filter((x) => x !== BLOQUE_NO_INVENTAR && x !== id), id]);
+					this.render();
+				}),
+			),
 		);
 		setting.addButton((b) =>
 			b
 				.setButtonText(chosen.length ? t("form.blocks.choose.n", { count: chosen.length }) : t("form.blocks.choose"))
-				.setDisabled(this.blocks.filter((x) => x.id !== BLOQUE_NO_INVENTAR).length === 0)
 				.onClick(() => {
-					const available = this.blocks.filter((x) => x.id !== BLOQUE_NO_INVENTAR);
-					new BlockPickerModal(this.app, available, chosen, (ids) => {
-						d.bloques = d.bloques.includes(BLOQUE_NO_INVENTAR) ? [...ids, BLOQUE_NO_INVENTAR] : ids;
-						this.render();
-					}).open();
+					new BlockPickerModal(
+						this.app,
+						available(),
+						chosen,
+						(ids) => {
+							setChosen(ids);
+							this.render();
+						},
+						createBlock,
+					).open();
 				}),
 		);
 		if (chosen.length === 0) return;
@@ -221,14 +274,16 @@ export class PromptFormModal extends Modal {
 			}
 			dd.setValue(d.ejemplos_ref).onChange((v) => (d.ejemplos_ref = v));
 		});
-		setting.addButton((b) =>
+		setting.addButton((b) => {
+			// Sin banco elegido, crear uno es el paso siguiente: se destaca el botón.
+			if (!d.ejemplos_ref) b.setCta();
 			b.setButtonText(t("form.ejemplos.new")).onClick(() => {
 				new ExamplesFormModal(this.app, this.plugin, (link) => {
 					d.ejemplos_ref = `[[${link}]]`;
 					void this.reloadAndRender();
 				}).open();
-			}),
-		);
+			});
+		});
 	}
 
 	/** El prompt: un solo texto o los cinco elementos por separado. */
@@ -257,10 +312,38 @@ export class PromptFormModal extends Modal {
 				this.elements[key] = v;
 				d.prompt = composeElements(this.elements);
 				this.updateMissing();
+				if (key === "tarea") this.updateSuggestions();
 			});
+			if (key === "tarea") {
+				this.suggestEl = contentEl.createDiv({ cls: "prompt-craft-suggest" });
+				this.updateSuggestions();
+			}
 		}
 		this.missingEl = contentEl.createDiv({ cls: "prompt-craft-missing" });
 		this.updateMissing();
+	}
+
+	/** Tipos de tarea que coinciden con lo escrito en el elemento «tarea»; un clic los aplica. */
+	private updateSuggestions(): void {
+		const box = this.suggestEl;
+		if (!box) return;
+		box.empty();
+		const d = this.draft;
+		const ids = suggestTareas(this.elements.tarea, this.plugin.settings.vocab.tarea, (id) => labelFor("tarea", id));
+		if (ids.length === 0 || (ids.length === 1 && d.tarea[0] === ids[0])) return;
+		box.createSpan({ text: t("form.tarea.suggest"), cls: "prompt-craft-muted" });
+		for (const id of ids) {
+			const chosen = d.tarea[0] === id;
+			const chip = box.createEl("button", {
+				text: labelFor("tarea", id),
+				cls: `prompt-craft-chip prompt-craft-hue-0${chosen ? " is-chosen" : ""}`,
+				attr: { "aria-pressed": String(chosen) },
+			});
+			chip.addEventListener("click", () => {
+				d.tarea = [id];
+				this.render();
+			});
+		}
 	}
 
 	private updateMissing(): void {
@@ -280,19 +363,59 @@ export class PromptFormModal extends Modal {
 		});
 	}
 
-	/** Lista abierta con una opción vacía; guarda como máximo un valor. */
+	/**
+	 * Lista abierta con una opción vacía; guarda como máximo un valor. La opción «Otra…» abre un
+	 * campo para escribir un valor nuevo, que queda elegido y se agrega a la lista en los ajustes.
+	 */
 	private openVocabDropdown(
 		name: string,
-		field: string,
+		field: OpenField,
 		options: string[],
 		current: string[],
 		onChange: (list: string[]) => void,
 	): void {
-		new Setting(this.contentEl).setName(name).addDropdown((dd) => {
+		const setting = new Setting(this.contentEl).setName(name);
+		setting.addDropdown((dd) => {
 			dd.addOption("", t("form.none"));
 			for (const id of options) dd.addOption(id, labelFor(field, id));
-			dd.setValue(current[0] ?? "").onChange((v) => onChange(v ? [v] : []));
+			if (current[0] && !options.includes(current[0])) dd.addOption(current[0], labelFor(field, current[0]));
+			dd.addOption(OTHER, t("form.other"));
+			dd.setValue(this.otherField === field ? OTHER : (current[0] ?? "")).onChange((v) => {
+				if (v === OTHER) {
+					this.otherField = field;
+					this.render();
+					return;
+				}
+				onChange(v ? [v] : []);
+				if (this.otherField === field) {
+					this.otherField = null;
+					this.render();
+				}
+			});
 		});
+		if (this.otherField !== field) return;
+
+		let typed = "";
+		const add = async () => {
+			const settings = this.plugin.settings;
+			const result = addOpenValue(settings.vocab[field], typed, (id) => labelFor(field, id));
+			if (!result.value) return;
+			settings.vocab[field] = result.list;
+			await this.plugin.saveSettings();
+			onChange([result.value]);
+			this.otherField = null;
+			this.render();
+		};
+		setting.addText((text) => {
+			text.setPlaceholder(t("form.other.placeholder")).onChange((v) => (typed = v));
+			text.inputEl.addEventListener("keydown", (event) => {
+				if (event.key !== "Enter") return;
+				event.preventDefault();
+				void add();
+			});
+			window.setTimeout(() => text.inputEl.focus(), 0);
+		});
+		setting.addButton((b) => b.setButtonText(t("form.other.add")).onClick(() => void add()));
 	}
 
 	private showIssues(issues: ValidationIssue[], extra: string[]): void {

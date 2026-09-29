@@ -17,7 +17,8 @@ export class BlockFormModal extends Modal {
 	constructor(
 		app: App,
 		private readonly plugin: PromptCraftPlugin,
-		private readonly onDone?: () => void,
+		/** Recibe el identificador del bloque creado. */
+		private readonly onDone?: (id: string) => void,
 	) {
 		super(app);
 	}
@@ -83,7 +84,7 @@ export class BlockFormModal extends Modal {
 				`# ${titulo}\n\n${this.texto.trim()}\n`,
 			);
 			new Notice(t("notice.noteCreated", { path: file.path }));
-			this.onDone?.();
+			this.onDone?.(id);
 			this.close();
 		} catch (error) {
 			console.error("[prompt-craft-library] no se pudo crear el bloque", error);

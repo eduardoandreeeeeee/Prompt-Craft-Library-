@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSettings, mergeSettings, parseDomainList } from "../src/core/settings";
+import { addOpenValue, classificationDefaultsFor, defaultSettings, mergeSettings, parseDomainList } from "../src/core/settings";
 import { HERRAMIENTAS_INICIALES } from "../src/core/vocab";
 
 describe("mergeSettings", () => {
@@ -66,5 +66,56 @@ describe("openHomeOnStartup", () => {
 		expect(mergeSettings(undefined).openHomeOnStartup).toBe(true);
 		expect(mergeSettings({ openHomeOnStartup: false }).openHomeOnStartup).toBe(false);
 		expect(mergeSettings({ openHomeOnStartup: "no" }).openHomeOnStartup).toBe(true);
+	});
+});
+
+describe("gettingStartedCollapsed", () => {
+	it("por defecto muestra «Para empezar» desplegado y respeta un valor guardado", () => {
+		expect(mergeSettings(undefined).gettingStartedCollapsed).toBe(false);
+		expect(mergeSettings({ gettingStartedCollapsed: true }).gettingStartedCollapsed).toBe(true);
+		expect(mergeSettings({ gettingStartedCollapsed: "sí" }).gettingStartedCollapsed).toBe(false);
+	});
+});
+
+describe("addOpenValue", () => {
+	it("agrega un valor nuevo al final sin modificar la lista original", () => {
+		const list = ["redactar"];
+		const result = addOpenValue(list, "  Responder   reclamos ");
+		expect(result).toEqual({ list: ["redactar", "Responder reclamos"], value: "Responder reclamos" });
+		expect(list).toEqual(["redactar"]);
+	});
+
+	it("no duplica un valor existente, ni por identificador ni por etiqueta", () => {
+		const label = (id: string) => (id === "adaptar-tono" ? "Adaptar tono" : id);
+		expect(addOpenValue(["redactar"], "REDACTAR")).toEqual({ list: ["redactar"], value: "redactar" });
+		expect(addOpenValue(["adaptar-tono"], "adaptar tono", label)).toEqual({ list: ["adaptar-tono"], value: "adaptar-tono" });
+	});
+
+	it("ignora un texto vacío", () => {
+		expect(addOpenValue(["chat"], "   ")).toEqual({ list: ["chat"], value: "" });
+	});
+});
+
+describe("valores por defecto de clasificación", () => {
+	it("por defecto no hay ninguno", () => {
+		expect(mergeSettings(undefined).defaults).toEqual({ herramienta: "", sensibilidad: "", estado: "", porDominio: {} });
+	});
+
+	it("descarta valores que no pertenecen a los vocabularios cerrados", () => {
+		const d = mergeSettings({ defaults: { herramienta: " chat ", sensibilidad: "secreto", estado: "validado" } }).defaults;
+		expect(d).toMatchObject({ herramienta: "chat", sensibilidad: "", estado: "validado" });
+	});
+
+	it("el dominio sobrescribe al general solo en los campos que tiene", () => {
+		const d = mergeSettings({
+			defaults: {
+				herramienta: "chat",
+				sensibilidad: "general",
+				porDominio: { Salud: { sensibilidad: "datos-personales" }, Vacío: {} },
+			},
+		}).defaults;
+		expect(Object.keys(d.porDominio)).toEqual(["Salud"]);
+		expect(classificationDefaultsFor(d, "Salud")).toEqual({ herramienta: "chat", sensibilidad: "datos-personales", estado: "" });
+		expect(classificationDefaultsFor(d, "Otro")).toEqual({ herramienta: "chat", sensibilidad: "general", estado: "" });
 	});
 });

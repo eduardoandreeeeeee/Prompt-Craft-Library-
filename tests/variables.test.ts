@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { extractVariables, renderPrompt } from "../src/core/variables";
+import { extractVariables, initialValues, renderPrompt } from "../src/core/variables";
+import { styleVariableValues } from "../src/core/style";
+import { defaultSettings } from "../src/core/settings";
 
 describe("extractVariables", () => {
 	it("reconoce nombre, valor por defecto y ayuda", () => {
@@ -63,5 +65,26 @@ describe("renderPrompt", () => {
 
 	it("no reprocesa el resultado de un reemplazo", () => {
 		expect(renderPrompt("{{a}}", { a: "{{b}}" }).text).toBe("{{b}}");
+	});
+});
+
+describe("variables heredadas del perfil de estilo", () => {
+	const profile = { ...defaultSettings().styleProfile, tratamiento: " usted ", idiomaVariante: "español de Chile", cierre: "" };
+
+	it("expone solo los campos del perfil que tienen dato", () => {
+		expect(styleVariableValues(profile)).toEqual({ tratamiento: "usted", "idioma-variante": "español de Chile" });
+	});
+
+	it("prellena las variables de igual nombre, sin distinguir la forma de escribirlo", () => {
+		const vars = extractVariables("{{Tratamiento}} {{idioma_variante}} {{cierre|Saludos}} {{cliente}}");
+		expect(initialValues(vars, {}, styleVariableValues(profile))).toEqual({
+			Tratamiento: "usted",
+			idioma_variante: "español de Chile",
+		});
+	});
+
+	it("un valor ya dado tiene prioridad sobre el perfil", () => {
+		const vars = extractVariables("{{tratamiento}}");
+		expect(initialValues(vars, { tratamiento: "tú" }, styleVariableValues(profile))).toEqual({ tratamiento: "tú" });
 	});
 });

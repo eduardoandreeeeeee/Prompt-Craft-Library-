@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import { parseDomainList } from "../core/settings";
-import { LanguageSetting, t } from "../i18n";
+import { ClassificationDefaults, emptyClassificationDefaults, parseDomainList } from "../core/settings";
+import { ESTADOS, Estado, SENSIBILIDADES, Sensibilidad } from "../core/vocab";
+import { LanguageSetting, labelFor, t } from "../i18n";
 import type PromptCraftPlugin from "../main";
 import { ExportPackModal } from "./ExportPackModal";
 import { ImportPackModal } from "./ImportPackModal";
@@ -82,6 +83,8 @@ export class PromptCraftSettingTab extends PluginSettingTab {
 				}),
 			);
 
+		this.defaultsSection(containerEl);
+
 		new Setting(containerEl).setName(t("settings.packs.heading")).setHeading();
 		new Setting(containerEl)
 			.setName(t("settings.packs.starter.name"))
@@ -105,5 +108,58 @@ export class PromptCraftSettingTab extends PluginSettingTab {
 			.addButton((button) =>
 				button.setButtonText(t("settings.wizard.button")).onClick(() => this.plugin.openWizard()),
 			);
+	}
+
+	/** Valores con que abre el formulario de nueva nota: uno general y excepciones por dominio. */
+	private defaultsSection(containerEl: HTMLElement): void {
+		const settings = this.plugin.settings;
+		new Setting(containerEl).setName(t("settings.defaults.heading")).setHeading();
+		containerEl.createEl("p", { text: t("settings.defaults.desc"), cls: "setting-item-description" });
+
+		const row = (name: string, desc: string, target: ClassificationDefaults, emptyLabel: string, onChange: () => Promise<void>) => {
+			const setting = new Setting(containerEl).setName(name).setDesc(desc);
+			setting.settingEl.addClass("prompt-craft-defaults-row");
+			const dropdown = (label: string, options: [string, string][], value: string, set: (v: string) => void) =>
+				setting.addDropdown((dd) => {
+					dd.addOption("", `${label}: ${emptyLabel}`);
+					for (const [id, text] of options) dd.addOption(id, `${label}: ${text}`);
+					if (value && !options.some(([id]) => id === value)) dd.addOption(value, `${label}: ${value}`);
+					dd.setValue(value).onChange(async (v) => {
+						set(v);
+						await onChange();
+					});
+				});
+			dropdown(
+				t("form.herramienta"),
+				settings.vocab.herramienta.map((id) => [id, labelFor("herramienta", id)]),
+				target.herramienta,
+				(v) => (target.herramienta = v),
+			);
+			dropdown(
+				t("field.sensibilidad"),
+				SENSIBILIDADES.map((id) => [id, labelFor("sensibilidad", id)]),
+				target.sensibilidad,
+				(v) => (target.sensibilidad = v as Sensibilidad | ""),
+			);
+			dropdown(
+				t("field.estado"),
+				ESTADOS.map((id) => [id, labelFor("estado", id)]),
+				target.estado,
+				(v) => (target.estado = v as Estado | ""),
+			);
+		};
+
+		row(t("settings.defaults.general"), t("settings.defaults.general.desc"), settings.defaults, t("settings.defaults.none"), () =>
+			this.plugin.saveSettings(),
+		);
+		for (const dominio of settings.domains) {
+			const target = settings.defaults.porDominio[dominio] ?? emptyClassificationDefaults();
+			row(dominio, t("settings.defaults.domain.desc"), target, t("settings.defaults.inherit"), async () => {
+				const used = target.herramienta || target.sensibilidad || target.estado;
+				if (used) settings.defaults.porDominio[dominio] = target;
+				else delete settings.defaults.porDominio[dominio];
+				await this.plugin.saveSettings();
+			});
+		}
 	}
 }

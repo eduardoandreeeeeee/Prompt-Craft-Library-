@@ -13,9 +13,11 @@ export type Outcome = "mejoro" | "igual" | "empeoro";
 export const OUTCOMES: readonly Outcome[] = ["mejoro", "igual", "empeoro"];
 
 export interface IterationInput {
-	symptoms: string[];
+	/** Opcional: en el registro rápido puede no haber síntomas. */
+	symptoms?: string[];
 	target: AdjustTarget;
-	note: string;
+	/** Opcional: en el registro rápido puede no haber nota. */
+	note?: string;
 	outcome: Outcome;
 	/** Texto del prompt después del ajuste. */
 	newPrompt: string;
@@ -32,6 +34,21 @@ export interface Counters {
 
 const num = (value: unknown, fallback: number): number =>
 	typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
+
+/**
+ * Modo del registro: el diagnóstico completo parte de los síntomas; el registro rápido es para
+ * ajustes obvios y solo pide el elemento ajustado, el prompt resultante y el resultado.
+ */
+export type IterationMode = "completo" | "rapido";
+
+/**
+ * ¿Hay lo mínimo para guardar? En el diagnóstico completo, al menos un síntoma o una nota; en el
+ * registro rápido basta el elemento ajustado y el resultado, que siempre tienen valor.
+ */
+export function canSaveIteration(mode: IterationMode, input: Pick<IterationInput, "symptoms" | "note">): boolean {
+	if (mode === "rapido") return true;
+	return (input.symptoms ?? []).length > 0 || (input.note ?? "").trim() !== "";
+}
 
 /** Contadores de la nota del prompt después de registrar una iteración; la versión sube solo si el prompt cambió. */
 export function nextCounters(fm: Record<string, unknown>, outcome: Outcome, promptChanged = true): Counters {
@@ -87,10 +104,12 @@ function symptomLine(id: string): string {
 /** Entrada de bitácora para una iteración. `version` es la versión que resulta. */
 export function iterationEntry(input: IterationInput, iteration: number, version: number, promptChanged: boolean): string {
 	const lines = [`## ${t("log.iteration", { n: iteration, date: input.date })}`, ""];
-	if (input.symptoms.length) lines.push(`- ${t("log.symptoms")}: ${input.symptoms.map(symptomLine).join("; ")}`);
+	const symptoms = input.symptoms ?? [];
+	const note = (input.note ?? "").trim();
+	if (symptoms.length) lines.push(`- ${t("log.symptoms")}: ${symptoms.map(symptomLine).join("; ")}`);
 	lines.push(`- ${t("log.adjusted")}: ${adjustLabel(input.target)}`);
 	lines.push(`- ${t("log.outcome")}: ${t(`outcome.${input.outcome}`)}`);
-	if (input.note.trim()) lines.push(`- ${t("log.note")}: ${input.note.trim().replace(/\r?\n/g, " ")}`);
+	if (note) lines.push(`- ${t("log.note")}: ${note.replace(/\r?\n/g, " ")}`);
 	lines.push("");
 	lines.push(
 		promptChanged

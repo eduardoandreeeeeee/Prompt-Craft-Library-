@@ -21,3 +21,22 @@ export function buildStyleBlock(profile: StyleProfile): string {
 
 	return lines.length ? `${t("style.block.heading")}\n${lines.join("\n")}` : "";
 }
+
+/**
+ * Valores del perfil de estilo por nombre de campo, para prellenar variables del mismo nombre
+ * (`{{tratamiento}}`, `{{idioma-variante}}`, `{{cierre}}`…). Solo incluye los campos con dato.
+ */
+export function styleVariableValues(profile: StyleProfile): Record<string, string> {
+	const fields: Record<string, string> = {
+		"contexto-base": profile.contextoBase,
+		"idioma-variante": profile.idiomaVariante,
+		tratamiento: profile.tratamiento,
+		registro: profile.registro,
+		cierre: profile.cierre,
+	};
+	return Object.fromEntries(
+		Object.entries(fields)
+			.map(([name, value]) => [name, value.trim()])
+			.filter(([, value]) => value !== ""),
+	);
+}

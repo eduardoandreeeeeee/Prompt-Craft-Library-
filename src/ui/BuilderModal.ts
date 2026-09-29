@@ -2,7 +2,8 @@ import { App, ButtonComponent, Modal, Notice, Setting, TFile } from "obsidian";
 import { buildFinalPrompt, composePrompt, examplesAdvice, sensitivityAdvice } from "../core/builder";
 import type { LibraryEntry } from "../core/library";
 import { extractPromptSection } from "../core/schema";
-import { extractVariables } from "../core/variables";
+import { styleVariableValues } from "../core/style";
+import { extractVariables, initialValues } from "../core/variables";
 import { styleIsFilled } from "../core/wizard";
 import { t } from "../i18n";
 import type PromptCraftPlugin from "../main";
@@ -20,7 +21,7 @@ export interface BuilderOptions {
  */
 export class BuilderModal extends Modal {
 	private readonly section: string;
-	private readonly values: Record<string, string>;
+	private values: Record<string, string>;
 	private extras: PromptExtrasData | null = null;
 	private includeStyle: boolean;
 	private confirmed = false;
@@ -54,6 +55,9 @@ export class BuilderModal extends Modal {
 		if (file instanceof TFile) {
 			this.extras = await loadPromptExtras(this.app, this.plugin.getPaths(), file, this.entry.frontmatter);
 		}
+		// Las variables con el nombre de un campo del perfil de estilo arrancan con ese valor.
+		const variables = extractVariables(composePrompt(this.section, this.promptExtras()));
+		this.values = initialValues(variables, this.values, styleVariableValues(this.plugin.settings.styleProfile));
 		this.render(file instanceof TFile ? file : null);
 	}
 

@@ -11,6 +11,7 @@ import {
 } from "../src/core/diagnostics";
 import {
 	appendToLog,
+	canSaveIteration,
 	initialLogBody,
 	iterationEntry,
 	nextCounters,
@@ -126,6 +127,26 @@ describe("bitácora", () => {
 		);
 		expect(entry).toContain("no cambió");
 		expect(entry).not.toContain("[!note]");
+	});
+
+	it("en el registro rápido, sin síntomas ni nota, registra elemento, resultado y prompt", () => {
+		const entry = iterationEntry(
+			{ target: "tarea", outcome: "mejoro", newPrompt: "P3", estado: "en-iteracion", date: "2026-09-28" },
+			3,
+			3,
+			true,
+		);
+		expect(entry).not.toContain("Síntomas");
+		expect(entry).not.toContain("Nota");
+		expect(entry).toContain("Elemento ajustado: Tarea");
+		expect(entry).toContain("> P3");
+	});
+
+	it("el diagnóstico completo exige un síntoma o una nota; el registro rápido no", () => {
+		expect(canSaveIteration("completo", { symptoms: [], note: "  " })).toBe(false);
+		expect(canSaveIteration("completo", { symptoms: ["D01"] })).toBe(true);
+		expect(canSaveIteration("completo", { note: "cambié el tono" })).toBe(true);
+		expect(canSaveIteration("rapido", {})).toBe(true);
 	});
 
 	it("agrega la entrada al final", () => {

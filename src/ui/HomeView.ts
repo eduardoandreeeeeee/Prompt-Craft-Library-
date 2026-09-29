@@ -96,6 +96,14 @@ export class HomeView extends ItemView {
 		const top = header.createDiv({ cls: "prompt-craft-home-top" });
 		top.createEl("h1", { text: t("plugin.name") });
 		const tools = top.createDiv({ cls: "prompt-craft-home-tools" });
+		const main = (label: string, icon: string, cls: string, action: () => void) => {
+			const b = tools.createEl("button", { cls: `prompt-craft-home-main ${cls}` });
+			setIcon(b.createSpan(), icon);
+			b.createSpan({ text: label });
+			b.addEventListener("click", action);
+		};
+		main(t("cmd.newPrompt"), "file-plus", "mod-cta", () => this.plugin.openNewPromptForm());
+		main(t("home.search"), "search", "prompt-craft-home-search", () => new SearchModal(this.app, this.plugin).open());
 		const tool = (icon: string, label: string, action: () => void) => {
 			const b = tools.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label } });
 			setIcon(b, icon);
@@ -138,7 +146,23 @@ export class HomeView extends ItemView {
 	}
 
 	private renderSteps(root: HTMLElement, steps: ReturnType<typeof homeSteps>): void {
-		const box = this.section(root, t("home.steps"));
+		const collapsed = this.plugin.settings.gettingStartedCollapsed;
+		const box = root.createDiv({ cls: "prompt-craft-home-section" });
+		const heading = box.createEl("h2", { cls: "prompt-craft-home-toggle" });
+		heading.createSpan({ text: t("home.steps") });
+		const pending = steps.filter((s) => !s.done).length;
+		heading.createSpan({ text: t("home.steps.pending", { count: pending, total: steps.length }), cls: "prompt-craft-muted" });
+		const toggle = heading.createEl("button", {
+			cls: "clickable-icon",
+			attr: { "aria-label": t(collapsed ? "home.steps.show" : "home.steps.hide"), "aria-expanded": String(!collapsed) },
+		});
+		setIcon(toggle, collapsed ? "chevron-right" : "chevron-down");
+		toggle.addEventListener("click", async () => {
+			this.plugin.settings.gettingStartedCollapsed = !collapsed;
+			await this.plugin.saveSettings();
+			await this.render();
+		});
+		if (collapsed) return;
 		box.createEl("p", { text: t("home.steps.desc"), cls: "prompt-craft-muted" });
 		const list = box.createEl("ol", { cls: "prompt-craft-home-steps" });
 		for (const step of steps) {

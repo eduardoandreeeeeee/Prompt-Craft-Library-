@@ -3,7 +3,13 @@ import { BlockNote } from "../core/blocks";
 import { normalizeText } from "../core/search";
 import { t } from "../i18n";
 
-/** Elige varios bloques de una lista con búsqueda; sirve aunque haya muchos. */
+/** Crea un bloque nuevo y avisa su identificador junto con la lista actualizada. */
+export type CreateBlock = (onCreated: (id: string, blocks: BlockNote[]) => void) => void;
+
+/**
+ * Elige varios bloques de una lista con búsqueda; sirve aunque haya muchos. Si se entrega
+ * `createBlock`, permite crear un bloque sin salir y lo deja marcado.
+ */
 export class BlockPickerModal extends Modal {
 	private readonly selected: Set<string>;
 	private query = "";
@@ -11,9 +17,10 @@ export class BlockPickerModal extends Modal {
 
 	constructor(
 		app: App,
-		private readonly blocks: BlockNote[],
+		private blocks: BlockNote[],
 		selected: string[],
 		private readonly onDone: (ids: string[]) => void,
+		private readonly createBlock?: CreateBlock,
 	) {
 		super(app);
 		this.selected = new Set(selected);
@@ -32,7 +39,20 @@ export class BlockPickerModal extends Modal {
 		this.listEl = contentEl.createDiv({ cls: "prompt-craft-picker-list" });
 		this.renderList();
 
-		new Setting(contentEl)
+		const footer = new Setting(contentEl);
+		if (this.createBlock) {
+			const create = this.createBlock;
+			footer.addButton((b) =>
+				b.setButtonText(t("form.blocks.new")).onClick(() =>
+					create((id, blocks) => {
+						this.blocks = blocks;
+						this.selected.add(id);
+						this.renderList();
+					}),
+				),
+			);
+		}
+		footer
 			.addButton((b) => b.setButtonText(t("form.cancel")).onClick(() => this.close()))
 			.addButton((b) =>
 				b
