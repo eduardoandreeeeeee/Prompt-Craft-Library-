@@ -1,7 +1,7 @@
 {
 	"id": "prompt-craft-library",
 	"name": "Prompt Craft Library",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"minAppVersion": "1.8.7",
 	"description": "Biblioteca de prompts: método de cinco elementos, few-shot, chain of thought y refinamiento iterativo.",
 	"author": "eduardoandreeeeeee",
